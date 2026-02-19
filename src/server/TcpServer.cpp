@@ -1,4 +1,5 @@
 #include "TcpServer.hpp"
+#include "../http/HttpRequest.hpp"
 #include <iostream>
 #include <stdexcept>
 
@@ -76,6 +77,19 @@ void TcpServer::handleClient(SOCKET client_socket){
     if(bytes_read > 0){
         if(bytes_read < 4096) buffer[bytes_read] = '\0';
         std::cout << "[client request]:\n" << buffer << "\n";
+
+        // ---- Parsing logic ---
+        std::string rawRequest(buffer);
+        HttpRequest request;
+
+        if(request.parse(rawRequest)){
+            std::cout << "[Server] request parsed successfully!\n";
+            request.printInfo();
+        }
+        else{
+            std::cout << "[server] Failed to parse request.\n";
+        }
+        // ----------------------
 
         std::string response = "HTTP/1.1 200 OK\r\nContent-Type: HTTP\r\n\r\n<H1>Hello from miniCDN!</H1>";
 
