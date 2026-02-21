@@ -75,4 +75,20 @@ void HttpRequest::printInfo() const{
     std::cout << "----------------------\n";
 }
 
+void HttpRequest::setHeader(const std::string &key, const std::string &value){
+    m_headers[key] = value;
+}
+
+std::string HttpRequest::toString() const{
+    std::ostringstream oss;
+    oss << m_method << " " << m_url << " " << m_version << "\r\n";
+
+    for(const auto &pair : m_headers){
+        oss << pair.first << ": " << pair.second << "\r\n";
+    }
+
+    oss << "\r\n";
+    return oss.str();
+}
+
 } // namespace miniCDN

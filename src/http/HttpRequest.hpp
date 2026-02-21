@@ -21,6 +21,9 @@ public:
 
     void printInfo() const;
 
+    void setHeader(const std::string &key, const std::string &value);
+    std::string toString() const;
+
 private:
     std::string m_method;
     std::string m_url;
