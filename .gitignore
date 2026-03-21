@@ -1,2 +1,8 @@
 *.exe
 .vscode
+
+build/
+
+#dev req
+docs/
+dev.md
