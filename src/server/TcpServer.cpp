@@ -62,7 +62,7 @@ void TcpServer::start(){
         std::cout << "[server] Waiting for connection...\n";
 
         client_socket = accept(m_server_socket, (struct sockaddr*)&client_addr, &client_len);
-        if(client_socket == SOCKET_ERROR){
+        if(client_socket == INVALID_SOCKET){
             std::cerr << "[Error] accept failed: " << WSAGetLastError() << "\n";
             continue;
         }
@@ -77,23 +77,7 @@ void TcpServer::handleClient(SOCKET client_socket){
     int bytes_read = recv(client_socket, buffer, sizeof(buffer), 0);
 
     if(bytes_read > 0){
-        if(bytes_read < 4096) buffer[bytes_read] = '\0';
-        // std::cout << "[client request]:\n" << buffer << "\n";
-
-        // // ---- Parsing logic ---
-        // std::string rawRequest(buffer);
-        // HttpRequest request;
-
-        // if(request.parse(rawRequest)){
-        //     std::cout << "[Server] request parsed successfully!\n";
-        //     request.printInfo();
-        // }
-        // else{
-        //     std::cout << "[server] Failed to parse request.\n";
-        // }
-        // // ----------------------
-
-        std::string rawRequest(buffer);
+        std::string rawRequest(buffer, bytes_read);
         HttpRequest request;
 
         if(request.parse(rawRequest)){
@@ -102,22 +86,18 @@ void TcpServer::handleClient(SOCKET client_socket){
                 proxy.handleRequest(client_socket, request);
             }
             else{
-                std::cerr << "[Proxy] only GET is supported currently\n"; 
+                std::cerr << "[Server] Method " << request.getMethod() << " not supported.\n";
             }
         }
-
-        std::string response = "HTTP/1.1 200 OK\r\nContent-Type: HTTP\r\n\r\n<H1>Hello from miniCDN!</H1>";
-
-        int iSendResult = send(client_socket, response.c_str(), (int)response.length(), 0);
-        if(iSendResult == SOCKET_ERROR){
-            std::cerr << "send failed: " << WSAGetLastError() << "\n";
+        else{
+            std::cerr << "[Server] Failed to parse HTTP request.\n";
         }
     }
     else if(bytes_read == 0){
-        std::cout << "Connection Closing...\n";
+        std::cout << "[Server] Client closed connection before sending data.\n";
     }
     else{
-        std::cerr << "recv failed: " << WSAGetLastError() << "\n";
+        std::cerr << "[Server] recv() failed: " << WSAGetLastError() << "\n";
     }
 
     closesocket(client_socket);

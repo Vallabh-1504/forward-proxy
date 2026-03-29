@@ -81,7 +81,15 @@ void HttpRequest::setHeader(const std::string &key, const std::string &value){
 
 std::string HttpRequest::toString() const{
     std::ostringstream oss;
-    oss << m_method << " " << m_url << " " << m_version << "\r\n";
+
+    std::string path = m_url;
+    size_t protocolPos = path.find("://");
+    if(protocolPos != std::string::npos){
+        size_t pathStart = path.find('/', protocolPos + 3);
+        path = (pathStart != std::string::npos) ? path.substr(pathStart) : "/";
+    }
+
+    oss << m_method << " " << path << " " << m_version << "\r\n";
 
     for(const auto &pair : m_headers){
         oss << pair.first << ": " << pair.second << "\r\n";

@@ -1,11 +1,6 @@
 #ifndef TCPSERVER_HPP
 #define TCPSERVER_HPP
 
-// #include <WinSock2.h>
-// #include <WS2tcpip.h>
-// #include <string>
-
-
 #include <WinSock2.h>
 #include <WinDef.h>
 #include <WS2tcpip.h>
@@ -13,11 +8,9 @@
 
 #include <string>
 
-
 namespace miniCDN{
 
 class TcpServer{
-
 public:
     TcpServer(int port);
     ~TcpServer();
@@ -33,10 +26,8 @@ private:
     void setupSocket();
     void handleClient(SOCKET client_socket);
     void cleanup();
-
 };
 
 } // namespace miniCDN
-
 
 #endif
