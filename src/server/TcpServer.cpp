@@ -67,39 +67,67 @@ void TcpServer::start(){
             continue;
         }
 
+        // Set a timeout for the client socket, which doesn't send data or is slow to sned
+        // SO_RCVTIMEO make recv() return WSAETIMEDOUT after 5 seconds, so handleClient() can detect and close the connection
+        DWORD timeout = 5000;
+        setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+            
         std::cout << "[server] connection accepted!\n";
         handleClient(client_socket);
     }
 }
 
 void TcpServer::handleClient(SOCKET client_socket){
+    // store all incoming bytes until full HTTP header has come, loop until \r\n\r\n
+
+    std::string rawRequest;
     char buffer[4096];
-    int bytes_read = recv(client_socket, buffer, sizeof(buffer), 0);
 
-    if(bytes_read > 0){
-        std::string rawRequest(buffer, bytes_read);
-        HttpRequest request;
+    while(true){
+        int bytesRead = recv(client_socket, buffer, sizeof(buffer), 0);
 
-        if(request.parse(rawRequest)){
-            if(request.getMethod() == "GET"){
-                ProxyHandler proxy;
-                proxy.handleRequest(client_socket, request);
-            }
-            else{
-                std::cerr << "[Server] Method " << request.getMethod() << " not supported.\n";
-            }
+        if(bytesRead > 0){
+            // accumulate all bytes
+            rawRequest.append(buffer, bytesRead);
+
+            if(rawRequest.find("\r\n\r\n") != std::string::npos) break;
+        }
+        else if(bytesRead == 0){
+            // no bytes received, client didn't send any data
+            std::cout << "[Server] Client closed connection before sending data.\n";
+            closesocket(client_socket);
+            return;
         }
         else{
-            std::cerr << "[Server] Failed to parse HTTP request.\n";
+            // socket error
+            // either WSAETIMEDOUT or normal
+            int error = WSAGetLastError();
+            if(error == WSAETIMEDOUT){
+                std::cerr << "[Server] Client timed out- closing connection\n";
+            }
+            else{
+                std::cerr << "[Server] recv() failed: " << error << "\n";
+            }
+
+            closesocket(client_socket);
+            return;
         }
     }
-    else if(bytes_read == 0){
-        std::cout << "[Server] Client closed connection before sending data.\n";
+    
+    HttpRequest request;
+    if(request.parse(rawRequest)){
+        if(request.getMethod() == "GET"){
+            ProxyHandler proxy;
+            proxy.handleRequest(client_socket, request);
+        }
+        else{
+            std::cerr << "[Server] Method " << request.getMethod() << " not supported\n";
+        }
     }
     else{
-        std::cerr << "[Server] recv() failed: " << WSAGetLastError() << "\n";
+        std::cerr << "[Server] failed to parse HTTP request\n";
     }
-
+    
     closesocket(client_socket);
 }
 
