@@ -88,6 +88,11 @@ void HttpRequest::setHeader(const std::string &key, const std::string &value){
     m_headers[lowerKey] = value;
 }
 
+void Httprequest::removeHeader(const std::string &key){
+    std::string lowerkey = toLower(key);
+    m_headers.erase(toLower(lowerkey));
+}
+
 std::string HttpRequest::toString() const{
     std::ostringstream oss;
     

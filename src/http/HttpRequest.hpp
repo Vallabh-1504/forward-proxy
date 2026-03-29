@@ -22,6 +22,7 @@ public:
     void printInfo() const;
 
     void setHeader(const std::string &key, const std::string &value);
+    void removeHeader(const std::string &key);
     std::string toString() const;
 
 private:
