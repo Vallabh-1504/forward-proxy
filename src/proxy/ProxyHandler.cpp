@@ -12,9 +12,13 @@ void ProxyHandler::handleRequest(SOCKET client_socket, HttpRequest &request){
         return;
     }
 
-    // 1. Prepare request headers for forwarding
+    // 1. Prepare request headers for forwarding, add headers
     request.setHeader("Host", host); // ensure Host header is present
     request.setHeader("Connection", "close"); // ask origin to close after response, currently
+
+    // 2. prepare request header, remove headers
+    // browsers send "Proxy-Connecton: Keep-Alive", meant for proxy only and not to be forwarded to origin
+    request.removeHeader("Proxy-Connection");
 
     // 2. Connect to remote host
     std::cout << "[Proxy] Connecting to " << host << " on port " << port << "...\n";
@@ -26,8 +30,14 @@ void ProxyHandler::handleRequest(SOCKET client_socket, HttpRequest &request){
     }
     std::cout << "[Proxy] Connected to " << host << "\n";
 
+    // set a receive timeout on remote_socket
+    // as not keeping can freeze thread on recv if received broken headers
+    DWORD recvTimeout = 10000;
+    setsockopt(remote_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&recvTimeout, sizeof(recvTimeout));
+
     // 3. Forward the HTTP request to the origin server
-    if(!forwardRequest(remote_socket, request)){
+    bool forwardedRequest = forwardRequest(remote_socket, request);
+    if(!forwardedRequest){
         std::cerr << "[Proxy] Failed to forward request to " << host << "\n";
         closesocket(remote_socket);
         return;
@@ -95,7 +105,7 @@ bool ProxyHandler::forwardRequest(SOCKET remote_socket, const HttpRequest &reque
 }
 
 void ProxyHandler::relayResponse(SOCKET remote_socket, SOCKET client_socket){
-    char buf[4096];
+    char buffer[4096];
     int totalRelayed = 0;
 
     int bytes;
@@ -114,9 +124,14 @@ void ProxyHandler::relayResponse(SOCKET remote_socket, SOCKET client_socket){
     }
 
     if(bytes < 0){
-        std::cerr << "[Proxy] recv() from origin failed: " << WSAGetLastError() << "\n";
+        int error = WSAGetLastError();
+        if(error == WSAETIMEDOUT){
+            std::cerr << "[Proxy] origin timed out mid-response\n";
+        }
+        else{
+            std::cerr << "[Proxy] recv() from origin failed: " << WSAGetLastError() << "\n";
+        }
     }
-
     std::cout << "[Proxy] Relayed " << totalRelayed << " bytes to client.\n";
 }
 
