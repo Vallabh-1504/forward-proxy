@@ -32,6 +32,10 @@ private:
 
     // trim whitespace
     std::string trim(const std::string &str);
+
+    // lowercase a string, case-insenstitive header
+    // because header field names are case-insenstive
+    std::string toLower(const std::string &str) const;
 };
 
 } // namespace miniCDN
