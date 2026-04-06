@@ -27,7 +27,7 @@ endif()
 
 
 
-# Unit Tests
+# ---- Unit Tests ----------------------------------------------------------------------------------------
 # Get GTest through FetchContent at build time
 include(FetchContent)
 
@@ -57,3 +57,31 @@ target_link_libraries(miniCDN_tests GTest::gtest_main)
 
 include(GoogleTest)
 gtest_discover_tests(miniCDN_tests)
+
+
+# ---- Benchmarks ----------------------------------------------------------------------------
+FetchContent_Declare(
+    googlebenchmark
+    URL https://github.com/google/benchmark/archive/refs/tags/v1.8.3.zip
+)
+
+# Disable benchmark's own internal tests
+set(BENCHMARK_ENABLE_TESTING       OFF CACHE BOOL "" FORCE)
+set(BENCHMARK_ENABLE_GTEST_TESTS   OFF CACHE BOOL "" FORCE)
+# Prevent -Werror from failing benchmark's build on MinGW (e.g. CacheUnknown switch warning)
+set(BENCHMARK_ENABLE_WERROR        OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(googlebenchmark)
+
+add_executable(
+    miniCDN_bench
+    benchmarks/bench_HttpRequest.cpp
+    src/http/HttpRequest.cpp
+)
+
+target_include_directories(miniCDN_bench PRIVATE
+    src/http
+)
+
+target_link_libraries(miniCDN_bench benchmark::benchmark)
+
