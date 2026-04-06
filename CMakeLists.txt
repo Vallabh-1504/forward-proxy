@@ -24,3 +24,36 @@ if(WIN32)
     target_link_libraries(miniCDN ws2_32)
     message(STATUS "Windows detected: Linking ws2_32 library.")
 endif()
+
+
+
+# Unit Tests
+# Get GTest through FetchContent at build time
+include(FetchContent)
+
+FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+)
+
+# Prevent GTest from overriding CRT Settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+enable_testing()
+
+# Test executables
+add_executable(
+    miniCDN_tests
+    tests/test_HttpRequest.cpp
+    src/http/HttpRequest.cpp
+)
+
+target_include_directories(miniCDN_tests PRIVATE
+    src/http
+)
+
+target_link_libraries(miniCDN_tests GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(miniCDN_tests)
