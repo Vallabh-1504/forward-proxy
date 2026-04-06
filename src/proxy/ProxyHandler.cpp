@@ -109,11 +109,11 @@ void ProxyHandler::relayResponse(SOCKET remote_socket, SOCKET client_socket){
     int totalRelayed = 0;
 
     int bytes;
-    while((bytes = recv(remote_socket, buf, sizeof(buf), 0)) > 0){
+    while((bytes = recv(remote_socket, buffer, sizeof(buffer), 0)) > 0){
         // Forward the chunk to the client, also handling partial sends
         int totalSent = 0;
         while(totalSent < bytes){
-            int sent = send(client_socket, buf + totalSent, bytes - totalSent, 0);
+            int sent = send(client_socket, buffer + totalSent, bytes - totalSent, 0);
             if(sent == SOCKET_ERROR){
                 std::cerr << "[Proxy] send() to client failed while relaying: " << WSAGetLastError() << "\n";
                 return;

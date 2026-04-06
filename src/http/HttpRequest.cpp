@@ -1,7 +1,9 @@
 #include "HttpRequest.hpp"
+#include <cstddef>
 #include <iostream>
 #include <sstream>
 #include <algorithm>
+#include <string>
 
 namespace miniCDN{
 
@@ -76,6 +78,36 @@ std::string HttpRequest::getHost() const{
 
 }
 
+int HttpRequest::getPort() const{
+    const int DEFAULT_PORT = 80;
+
+    // check for port in URL (http://example.com:8000/home)
+    size_t protocolPos = m_url.find("://");
+    if(protocolPos != std::string::npos){
+        size_t hostStart = protocolPos + 3;
+        size_t pathStart = m_url.find('/', hostStart);
+
+        std::string hostPort = (pathStart != std::string::npos) ? m_url.substr(hostStart, pathStart - hostStart) : m_url.substr(hostStart);
+
+        size_t colonPos = hostPort.find(':');
+        if(colonPos != std::string::npos){
+            return std::stoi(hostPort.substr(colonPos + 1));
+        }
+
+        return DEFAULT_PORT;
+    }
+
+    // fallback, check host header for port
+    std::string hostHeader = getHeader("host");
+    size_t colonPos = hostHeader.find(':');
+
+    if(colonPos != std::string::npos){
+        return std::stoi(hostHeader.substr(colonPos + 1));
+    }
+
+    return DEFAULT_PORT;
+}
+
 std::string HttpRequest::trim(const std::string &str){
     size_t first = str.find_first_not_of(" \t\r\n");
     if(first == std::string::npos) return "";
@@ -88,9 +120,9 @@ void HttpRequest::setHeader(const std::string &key, const std::string &value){
     m_headers[lowerKey] = value;
 }
 
-void Httprequest::removeHeader(const std::string &key){
+void HttpRequest::removeHeader(const std::string &key){
     std::string lowerkey = toLower(key);
-    m_headers.erase(toLower(lowerkey));
+    m_headers.erase(lowerkey);
 }
 
 std::string HttpRequest::toString() const{

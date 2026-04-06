@@ -18,13 +18,14 @@ public:
     std::string getHttpVersion() const { return m_version; }
     std::string getHeader(const std::string &key) const;
     std::string getHost() const;
-
-    void printInfo() const;
+    int getPort() const;
 
     void setHeader(const std::string &key, const std::string &value);
     void removeHeader(const std::string &key);
+    
     std::string toString() const;
-
+    
+    void printInfo() const;
 private:
     std::string m_method;
     std::string m_url;
