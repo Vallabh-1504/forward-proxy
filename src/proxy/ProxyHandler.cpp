@@ -1,16 +1,30 @@
 #include "ProxyHandler.hpp"
+#include <WinSock2.h>
 #include <iostream>
+#include <wingdi.h>
 
 namespace miniCDN{
 
+ProxyHandler::ProxyHandler(LRUCache &cache) : m_cache(cache){}
+
 void ProxyHandler::handleRequest(SOCKET client_socket, HttpRequest &request){
     std::string host = request.getHost();
-    int port = 80; // HTTP default
+    int port = request.getPort();
 
     if(host.empty()){
         std::cerr << "[Proxy] Could not determine host from request.\n";
         return;
     }
+
+    // Cache check- key is full URL sent by the browser
+    std::string cacheKey = request.getUrl();
+    auto cached = m_cache.get(cacheKey);
+    if(cached.has_value()){
+        std::cout << "[cache] HIT: " << cacheKey << "\n";
+        sendToClient(client_socket, cached.value());
+        return;
+    }
+    std::cout << "[cache] Miss: " << cacheKey << "\n";
 
     // 1. Prepare request headers for forwarding, add headers
     request.setHeader("Host", host); // ensure Host header is present
@@ -23,7 +37,6 @@ void ProxyHandler::handleRequest(SOCKET client_socket, HttpRequest &request){
     // 2. Connect to remote host
     std::cout << "[Proxy] Connecting to " << host << " on port " << port << "...\n";
     SOCKET remote_socket = connectToHost(host, port);
-
     if(remote_socket == INVALID_SOCKET){
         std::cerr << "[Proxy] Failed to connect to " << host << "\n";
         return;
@@ -44,12 +57,23 @@ void ProxyHandler::handleRequest(SOCKET client_socket, HttpRequest &request){
     }
     std::cout << "[Proxy] Request forwarded to " << host << "\n";
 
-    // 4. Relay the origin response back to the client
-    std::cout << "[Proxy] Relaying response from " << host << "...\n";
-    relayResponse(remote_socket, client_socket);
-
-    // 5. Cleanup
+    // 4. Fetch the full response into memory
+    std::string response = fetchResponse(remote_socket);
     closesocket(remote_socket);
+
+    if(response.empty()){
+        std::cerr << "[proxy] Empty response from " << host << "\n";
+        return;
+    }
+
+    // 5. store the response from Cache
+    m_cache.put(cacheKey, response);
+    std::cout << "[Cache] stored response for: " << cacheKey << "\n";
+
+    // 6. Send the response back to the client
+    std::cout << "[Proxy] sending response to client from " << host << "...\n";
+    sendToClient(client_socket, response);
+    
     std::cout << "[Proxy] Done.\n";
 }
 
@@ -104,23 +128,14 @@ bool ProxyHandler::forwardRequest(SOCKET remote_socket, const HttpRequest &reque
     return true;
 }
 
-void ProxyHandler::relayResponse(SOCKET remote_socket, SOCKET client_socket){
+std::string ProxyHandler::fetchResponse(SOCKET remote_socket){
+    std::string response;
     char buffer[4096];
-    int totalRelayed = 0;
 
+    // Read all chunks from origin into one string
     int bytes;
     while((bytes = recv(remote_socket, buffer, sizeof(buffer), 0)) > 0){
-        // Forward the chunk to the client, also handling partial sends
-        int totalSent = 0;
-        while(totalSent < bytes){
-            int sent = send(client_socket, buffer + totalSent, bytes - totalSent, 0);
-            if(sent == SOCKET_ERROR){
-                std::cerr << "[Proxy] send() to client failed while relaying: " << WSAGetLastError() << "\n";
-                return;
-            }
-            totalSent += sent;
-        }
-        totalRelayed += bytes;
+        response.append(buffer, bytes);
     }
 
     if(bytes < 0){
@@ -132,7 +147,26 @@ void ProxyHandler::relayResponse(SOCKET remote_socket, SOCKET client_socket){
             std::cerr << "[Proxy] recv() from origin failed: " << WSAGetLastError() << "\n";
         }
     }
-    std::cout << "[Proxy] Relayed " << totalRelayed << " bytes to client.\n";
+    std::cout << "[Proxy] Fetched " << response.size() << " bytes from origin.\n";
+    return response;
+}
+
+void ProxyHandler::sendToClient(SOCKET client_socket, const std::string &response){
+    const char *data = response.c_str();
+    int totalLength = (int)response.size();
+    int totalSent = 0;
+
+    // Introduce partial send loop, TCP may not send all at once
+    while(totalSent < totalLength){
+        int sent = send(client_socket, data + totalSent, totalLength - totalSent, 0);
+        if(sent == SOCKET_ERROR){
+            std::cerr << "[Proxy] send() to client failed: " << WSAGetLastError() << "\n";
+            return;
+        }
+        totalSent += sent;
+    }
+
+    std::cout << "[Proxy] sent " << totalLength << "bytes to client\n";
 }
 
 } // namespace miniCDN

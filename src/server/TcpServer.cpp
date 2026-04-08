@@ -4,10 +4,11 @@
 
 #include <iostream>
 #include <stdexcept>
+#include <string>
 
 namespace miniCDN{
 
-TcpServer::TcpServer(int port) : m_port(port), m_server_socket(INVALID_SOCKET){
+TcpServer::TcpServer(int port) : m_port(port), m_server_socket(INVALID_SOCKET), m_cache(100){
     setupSocket();
 }
 
@@ -59,7 +60,7 @@ void TcpServer::start(){
         sockaddr_in client_addr;
         int client_len = sizeof(client_addr);
 
-        std::cout << "[server] Waiting for connection...\n";
+        std::cout << "\n[server] Waiting for connection...\n";
 
         client_socket = accept(m_server_socket, (struct sockaddr*)&client_addr, &client_len);
         if(client_socket == INVALID_SOCKET){
@@ -117,7 +118,7 @@ void TcpServer::handleClient(SOCKET client_socket){
     HttpRequest request;
     if(request.parse(rawRequest)){
         if(request.getMethod() == "GET"){
-            ProxyHandler proxy;
+            ProxyHandler proxy(m_cache);                       // pass cache to proxy module
             proxy.handleRequest(client_socket, request);
         }
         else{

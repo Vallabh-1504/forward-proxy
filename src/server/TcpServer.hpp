@@ -6,7 +6,7 @@
 #include <WS2tcpip.h>
 #include <tchar.h>
 
-#include <string>
+#include "../cache/LRUCache.hpp"
 
 namespace miniCDN{
 
@@ -22,6 +22,8 @@ private:
     SOCKET m_server_socket;
     sockaddr_in m_server_addr;
     WSADATA m_wsaData;
+
+    LRUCache m_cache;
 
     void setupSocket();
     void handleClient(SOCKET client_socket);
