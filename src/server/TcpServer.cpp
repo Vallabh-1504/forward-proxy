@@ -8,7 +8,7 @@
 
 namespace miniCDN{
 
-TcpServer::TcpServer(int port) : m_port(port), m_server_socket(INVALID_SOCKET), m_cache(100){
+TcpServer::TcpServer(int port) : m_port(port), m_server_socket(INVALID_SOCKET), m_cache(100), m_threapool(16) {
     setupSocket();
 }
 
@@ -74,7 +74,11 @@ void TcpServer::start(){
         setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
             
         std::cout << "[server] connection accepted!\n";
-        handleClient(client_socket);
+
+        // enqueue the job as a lambda function to threadpool
+        m_threapool.enqueue([this, client_socket](){
+            this->handleClient(client_socket);
+        });
     }
 }
 

@@ -7,6 +7,7 @@
 #include <tchar.h>
 
 #include "../cache/LRUCache.hpp"
+#include "../threadpool/Threadpool.hpp"
 
 namespace miniCDN{
 
@@ -24,6 +25,7 @@ private:
     WSADATA m_wsaData;
 
     LRUCache m_cache;
+    Threadpool m_threapool;
 
     void setupSocket();
     void handleClient(SOCKET client_socket);

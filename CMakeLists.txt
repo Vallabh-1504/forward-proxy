@@ -14,6 +14,7 @@ set(SOURCES
     src/http/HttpRequest.cpp
     src/proxy/ProxyHandler.cpp
     src/cache/LRUCache.cpp
+    src/threadpool/Threadpool.cpp
 )
 
 include_directories(
