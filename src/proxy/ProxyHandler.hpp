@@ -17,6 +17,10 @@ public:
 
     void handleRequest(SOCKET client_socket, HttpRequest &request);
 
+    // HTTPS CONNECT tunnel- open a raw TCP pipe between client and origin
+    // data pass untouched
+    void handleConnect(SOCKET client_socket, const std::string &host, int port);
+
 private:
     LRUCache& m_cache;
 
@@ -31,6 +35,9 @@ private:
 
     // send the response to client 
     void sendToClient(SOCKET client_socket, const std::string &response);
+
+    // Bidirectional byte relay for CONNECT tunnels, using select()
+    void runTunnel(SOCKET client_socket, SOCKET remote_socket);
 };
 
 

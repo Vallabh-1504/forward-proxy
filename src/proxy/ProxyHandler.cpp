@@ -169,4 +169,70 @@ void ProxyHandler::sendToClient(SOCKET client_socket, const std::string &respons
     std::cout << "[Proxy] sent " << totalLength << "bytes to client\n";
 }
 
+void ProxyHandler::handleConnect(SOCKET client_socket, const std::string &host, int port){
+    std::cout << "[Proxy] CONNECT request for " << host << ":" << port << "\n";
+
+    // Opening a plain TCP connection to the origin on the requested port (usually 443).
+    // TLS is handled entirely by the browser and origin
+    SOCKET remote_socket = connectToHost(host, port);
+    if(remote_socket == INVALID_SOCKET){
+        std::cerr << "[Proxy] CONNECT failed: could not reach " << host << ":" << port << "\n";
+        return;
+    }
+
+    // Tell browser the tunnel is ready.
+    // After this, browser starts TLS handshake directly and all subsequent bytes are encrypted and we forward them blindly (no caching possible)
+    std::string ok = "HTTP/1.1 200 Connection Established\r\n\r\n";
+
+    send(client_socket, ok.c_str(), (int)ok.size(), 0);
+    std::cout << "[Proxy] CONNECT tunnel open: " << host << ":" << port << "\n";
+
+    runTunnel(client_socket, remote_socket);
+    std::cout << "[Proxy] CONNECT tunnel closed: " << host << ":" << port << "\n";
+
+    closesocket(remote_socket);
+}
+
+void ProxyHandler::runTunnel(SOCKET client_socket, SOCKET remote_socket){
+    char buffer[4096];
+
+    // select() tells which socket(s) are readable, so we can forward in whichever direction has data, without blocking
+     while(true){
+        fd_set readSet;
+        FD_ZERO(&readSet);
+        FD_SET(client_socket, &readSet);
+        FD_SET(remote_socket, &readSet);
+
+        struct timeval tv;
+        tv.tv_sec  = 30;   // 30 sec connection timeout
+        tv.tv_usec = 0;
+
+        int ready = select(0, &readSet, nullptr, nullptr, &tv);
+        if(ready <= 0){
+            break;   // 0 = timeout, <0 = select error
+        }
+
+        // Client sent data -> forward to origin
+        if(FD_ISSET(client_socket, &readSet)){
+            int n = recv(client_socket, buffer, sizeof(buffer), 0);
+            if(n <= 0){
+                break;   // browser closed the connection
+            }
+            if(send(remote_socket, buffer, n, 0) == SOCKET_ERROR){
+                break;
+            }
+        }
+        // Origin sent data -> forward to client
+        if(FD_ISSET(remote_socket, &readSet)){
+            int n = recv(remote_socket, buffer, sizeof(buffer), 0);
+            if(n <= 0){
+                break;   // origin closed the connection
+            }
+            if(send(client_socket, buffer, n, 0) == SOCKET_ERROR){
+                break;
+            }
+        }
+    }
+}
+
 } // namespace miniCDN

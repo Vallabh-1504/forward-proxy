@@ -117,9 +117,13 @@ void TcpServer::handleClient(SOCKET client_socket){
     
     HttpRequest request;
     if(request.parse(rawRequest)){
-        if(request.getMethod() == "GET"){
-            ProxyHandler proxy(m_cache);                       // pass cache to proxy module
+        if(request.getMethod() == "GET"){  // HTTP Request
+            ProxyHandler proxy(m_cache);              // pass cache to proxy module
             proxy.handleRequest(client_socket, request);
+        }
+        else if(request.getMethod() == "CONNECT"){ // HTTPS CONNECT request
+            ProxyHandler proxy(m_cache);
+            proxy.handleConnect(client_socket, request.getHost(), request.getPort());
         }
         else{
             std::cerr << "[Server] Method " << request.getMethod() << " not supported\n";
