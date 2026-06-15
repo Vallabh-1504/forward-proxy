@@ -55,7 +55,7 @@ void TcpServer::setupSocket(){
 }
 
 void TcpServer::start(){
-    while(true){
+    while(m_running){
         SOCKET client_socket = INVALID_SOCKET;
         sockaddr_in client_addr;
         int client_len = sizeof(client_addr);
@@ -64,6 +64,11 @@ void TcpServer::start(){
 
         client_socket = accept(m_server_socket, (struct sockaddr*)&client_addr, &client_len);
         if(client_socket == INVALID_SOCKET){
+            // if stop() was called, socket was closed deliberately. break
+            if(!m_running){
+                break;
+            }
+
             std::cerr << "[Error] accept failed: " << WSAGetLastError() << "\n";
             continue;
         }
@@ -148,6 +153,17 @@ void TcpServer::cleanup(){
 
     WSACleanup();
     std::cout << "[Server] winsock cleaned up.\n";
+}
+
+void TcpServer::stop(){
+    m_running = false;
+    if(m_server_socket != INVALID_SOCKET){
+        // Force blocking accept() to return immediately
+        closesocket(m_server_socket);
+
+        // Set to INVALID -> cleanup() will not try closing again
+        m_server_socket = INVALID_SOCKET;
+    }
 }
 
 } // namespace miniCDN

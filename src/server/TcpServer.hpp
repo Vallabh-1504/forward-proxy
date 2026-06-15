@@ -5,6 +5,7 @@
 #include <WinDef.h>
 #include <WS2tcpip.h>
 #include <tchar.h>
+#include <atomic>
 
 #include "../cache/LRUCache.hpp"
 #include "../threadpool/Threadpool.hpp"
@@ -17,6 +18,7 @@ public:
     ~TcpServer();
 
     void start();
+    void stop();
 
 private:
     int m_port;
@@ -26,6 +28,8 @@ private:
 
     LRUCache m_cache;
     Threadpool m_threapool;
+
+    std::atomic<bool> m_running{true};
 
     void setupSocket();
     void handleClient(SOCKET client_socket);
