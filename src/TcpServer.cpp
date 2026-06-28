@@ -1,10 +1,11 @@
-#include "TcpServer.hpp"
-#include "../http/HttpRequest.hpp"
-#include "../proxy/ProxyHandler.hpp"
-
 #include <iostream>
 #include <stdexcept>
 #include <cstring>
+
+#include "TcpServer.hpp"
+#include "HttpRequest.hpp"
+#include "ProxyHandler.hpp"
+
 
 namespace miniCDN{
 
@@ -39,7 +40,7 @@ void TcpServer::setupSocket(){
         throw std::runtime_error("listen failed with error:" + std::string(strerror(errno)));
     }
 
-    std::cout << "[server] Winsock initialized. Listening on Port " << m_port << "...\n";
+    std::cout << "[server] sockets initialized. Listening on Port " << m_port << "...\n";
 }
 
 void TcpServer::start(){

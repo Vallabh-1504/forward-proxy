@@ -1,9 +1,9 @@
-#include "ProxyHandler.hpp"
-
 #include <iostream>
 #include <cerrno>
 #include <cstring>
 #include <algorithm>
+
+#include "ProxyHandler.hpp"
 
 namespace miniCDN{
 

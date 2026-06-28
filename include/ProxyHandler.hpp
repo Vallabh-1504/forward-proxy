@@ -9,8 +9,8 @@
 
 #include <string>
 
-#include "../http/HttpRequest.hpp"
-#include "../cache/LRUCache.hpp"
+#include "HttpRequest.hpp"
+#include "LRUCache.hpp"
 
 namespace miniCDN{
 

@@ -7,8 +7,8 @@
 
 #include <atomic>
 
-#include "../cache/LRUCache.hpp"
-#include "../threadpool/Threadpool.hpp"
+#include "LRUCache.hpp"
+#include "Threadpool.hpp"
 
 namespace miniCDN{
 

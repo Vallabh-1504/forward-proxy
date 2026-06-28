@@ -1,6 +1,7 @@
-#include "../server/TcpServer.hpp"
 #include <iostream>
 #include <csignal>
+
+#include "TcpServer.hpp"
 
 // Global pointer required for the signal handler to access the server instance
 miniCDN::TcpServer* globalServer = nullptr;
