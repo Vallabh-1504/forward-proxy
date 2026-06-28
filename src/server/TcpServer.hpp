@@ -1,10 +1,10 @@
 #ifndef TCPSERVER_HPP
 #define TCPSERVER_HPP
 
-#include <WinSock2.h>
-#include <WinDef.h>
-#include <WS2tcpip.h>
-#include <tchar.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+
 #include <atomic>
 
 #include "../cache/LRUCache.hpp"
@@ -22,9 +22,8 @@ public:
 
 private:
     int m_port;
-    SOCKET m_server_socket;
+    int m_server_socket;
     sockaddr_in m_server_addr;
-    WSADATA m_wsaData;
 
     LRUCache m_cache;
     Threadpool m_threapool;
@@ -32,7 +31,7 @@ private:
     std::atomic<bool> m_running{true};
 
     void setupSocket();
-    void handleClient(SOCKET client_socket);
+    void handleClient(int client_socket);
     void cleanup();
 };
 

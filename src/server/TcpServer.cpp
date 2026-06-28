@@ -4,11 +4,11 @@
 
 #include <iostream>
 #include <stdexcept>
-#include <string>
+#include <cstring>
 
 namespace miniCDN{
 
-TcpServer::TcpServer(int port) : m_port(port), m_server_socket(INVALID_SOCKET), m_cache(100), m_threapool(16) {
+TcpServer::TcpServer(int port) : m_port(port), m_server_socket(-1), m_cache(100), m_threapool(16) {
     setupSocket();
 }
 
@@ -17,38 +17,26 @@ TcpServer::~TcpServer(){
 }
 
 void TcpServer::setupSocket(){
-    // 1. initialize winsock
-    int iResult = WSAStartup(MAKEWORD(2, 2), &m_wsaData);
-    if(iResult != 0){
-        throw std::runtime_error("WSAStartup failed: " + std::to_string(iResult));
-    }
-
-    // 2. create socket
+    // 1. create socket
     m_server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if(m_server_socket == INVALID_SOCKET){
-        WSACleanup();
-        throw std::runtime_error("Error at socket():" + std::to_string(WSAGetLastError()));
+    if(m_server_socket == -1){
+        throw std::runtime_error("Error at socket():" + std::string(strerror(errno)));
     }
 
-    // 3. Bind the socket
+    // 2. Bind the socket
     m_server_addr.sin_family = AF_INET;
     m_server_addr.sin_addr.s_addr = INADDR_ANY;
     m_server_addr.sin_port = htons(m_port);
 
-    // if(InetPton(AF_INET, _T("0.0.0.0"), &m_server_addr.sin_addr) != 1){
-    //     cleanup();
-    //     throw std::runtime_error("Error at InetPton():" + std::to_string(WSAGetLastError()));
-    // } 
-
-    if(bind(m_server_socket, (SOCKADDR*)&m_server_addr, sizeof(m_server_addr)) == SOCKET_ERROR){
+    if(bind(m_server_socket, (struct sockaddr*)&m_server_addr, sizeof(m_server_addr)) == -1){
         cleanup();
-        throw std::runtime_error("bind failed with error:" + std::to_string(WSAGetLastError()));
+        throw std::runtime_error("bind failed with error:" + std::string(strerror(errno)));
     }
     
-    // 4. listen
-    if(listen(m_server_socket, SOMAXCONN) == SOCKET_ERROR){
+    // 3. listen
+    if(listen(m_server_socket, SOMAXCONN) == -1){
         cleanup();
-        throw std::runtime_error("listen failed with error:" + std::to_string(WSAGetLastError()));
+        throw std::runtime_error("listen failed with error:" + std::string(strerror(errno)));
     }
 
     std::cout << "[server] Winsock initialized. Listening on Port " << m_port << "...\n";
@@ -56,27 +44,27 @@ void TcpServer::setupSocket(){
 
 void TcpServer::start(){
     while(m_running){
-        SOCKET client_socket = INVALID_SOCKET;
+        int client_socket = -1;
         sockaddr_in client_addr;
-        int client_len = sizeof(client_addr);
+        socklen_t client_len = sizeof(client_addr);
 
         std::cout << "\n[server] Waiting for connection...\n";
 
         client_socket = accept(m_server_socket, (struct sockaddr*)&client_addr, &client_len);
-        if(client_socket == INVALID_SOCKET){
+        if(client_socket == -1){
             // if stop() was called, socket was closed deliberately. break
             if(!m_running){
                 break;
             }
 
-            std::cerr << "[Error] accept failed: " << WSAGetLastError() << "\n";
+            std::cerr << "[Error] accept failed: " << errno << "\n";
             continue;
         }
 
         // Set a timeout for the client socket, which doesn't send data or is slow to sned
         // SO_RCVTIMEO make recv() return WSAETIMEDOUT after 5 seconds, so handleClient() can detect and close the connection
-        DWORD timeout = 5000;
-        setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+        struct timeval timeout{5, 0};
+        setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
             
         std::cout << "[server] connection accepted!\n";
 
@@ -87,7 +75,7 @@ void TcpServer::start(){
     }
 }
 
-void TcpServer::handleClient(SOCKET client_socket){
+void TcpServer::handleClient(int client_socket){
     // store all incoming bytes until full HTTP header has come, loop until \r\n\r\n
 
     std::string rawRequest;
@@ -105,21 +93,21 @@ void TcpServer::handleClient(SOCKET client_socket){
         else if(bytesRead == 0){
             // no bytes received, client didn't send any data
             std::cout << "[Server] Client closed connection before sending data.\n";
-            closesocket(client_socket);
+            close(client_socket);
             return;
         }
         else{
             // socket error
             // either WSAETIMEDOUT or normal
-            int error = WSAGetLastError();
-            if(error == WSAETIMEDOUT){
+            int error = errno;
+            if(error == EAGAIN || error == EWOULDBLOCK){
                 std::cerr << "[Server] Client timed out- closing connection\n";
             }
             else{
                 std::cerr << "[Server] recv() failed: " << error << "\n";
             }
 
-            closesocket(client_socket);
+            close(client_socket);
             return;
         }
     }
@@ -127,7 +115,7 @@ void TcpServer::handleClient(SOCKET client_socket){
     HttpRequest request;
     if(request.parse(rawRequest)){
         if(request.getMethod() == "GET"){  // HTTP Request
-            ProxyHandler proxy(m_cache);              // pass cache to proxy module
+            ProxyHandler proxy(m_cache); // pass cache to proxy module
             proxy.handleRequest(client_socket, request);
         }
         else if(request.getMethod() == "CONNECT"){ // HTTPS CONNECT request
@@ -142,27 +130,24 @@ void TcpServer::handleClient(SOCKET client_socket){
         std::cerr << "[Server] failed to parse HTTP request\n";
     }
     
-    closesocket(client_socket);
+    close(client_socket);
 }
 
 void TcpServer::cleanup(){
-    if(m_server_socket != INVALID_SOCKET){
-        closesocket(m_server_socket);
-        m_server_socket = INVALID_SOCKET;
+    if(m_server_socket != -1){
+        close(m_server_socket);
+        m_server_socket = -1;
     }
-
-    WSACleanup();
-    std::cout << "[Server] winsock cleaned up.\n";
 }
 
 void TcpServer::stop(){
     m_running = false;
-    if(m_server_socket != INVALID_SOCKET){
+    if(m_server_socket != -1){
         // Force blocking accept() to return immediately
-        closesocket(m_server_socket);
+        close(m_server_socket);
 
         // Set to INVALID -> cleanup() will not try closing again
-        m_server_socket = INVALID_SOCKET;
+        m_server_socket = -1;
     }
 }
 

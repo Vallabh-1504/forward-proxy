@@ -1,13 +1,15 @@
 #include "ProxyHandler.hpp"
-#include <WinSock2.h>
+
 #include <iostream>
-#include <wingdi.h>
+#include <cerrno>
+#include <cstring>
+#include <algorithm>
 
 namespace miniCDN{
 
 ProxyHandler::ProxyHandler(LRUCache &cache) : m_cache(cache){}
 
-void ProxyHandler::handleRequest(SOCKET client_socket, HttpRequest &request){
+void ProxyHandler::handleRequest(int client_socket, HttpRequest &request){
     std::string host = request.getHost();
     int port = request.getPort();
 
@@ -36,8 +38,8 @@ void ProxyHandler::handleRequest(SOCKET client_socket, HttpRequest &request){
 
     // 2. Connect to remote host
     std::cout << "[Proxy] Connecting to " << host << " on port " << port << "...\n";
-    SOCKET remote_socket = connectToHost(host, port);
-    if(remote_socket == INVALID_SOCKET){
+    int remote_socket = connectToHost(host, port);
+    if(remote_socket == -1){
         std::cerr << "[Proxy] Failed to connect to " << host << "\n";
         return;
     }
@@ -45,21 +47,21 @@ void ProxyHandler::handleRequest(SOCKET client_socket, HttpRequest &request){
 
     // set a receive timeout on remote_socket
     // as not keeping can freeze thread on recv if received broken headers
-    DWORD recvTimeout = 10000;
-    setsockopt(remote_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&recvTimeout, sizeof(recvTimeout));
+    struct timeval recvTimeout{10, 0};
+    setsockopt(remote_socket, SOL_SOCKET, SO_RCVTIMEO, &recvTimeout, sizeof(recvTimeout));
 
     // 3. Forward the HTTP request to the origin server
     bool forwardedRequest = forwardRequest(remote_socket, request);
     if(!forwardedRequest){
         std::cerr << "[Proxy] Failed to forward request to " << host << "\n";
-        closesocket(remote_socket);
+        close(remote_socket);
         return;
     }
     std::cout << "[Proxy] Request forwarded to " << host << "\n";
 
     // 4. Fetch the full response into memory
     std::string response = fetchResponse(remote_socket);
-    closesocket(remote_socket);
+    close(remote_socket);
 
     if(response.empty()){
         std::cerr << "[proxy] Empty response from " << host << "\n";
@@ -77,11 +79,10 @@ void ProxyHandler::handleRequest(SOCKET client_socket, HttpRequest &request){
     std::cout << "[Proxy] Done.\n";
 }
 
-SOCKET ProxyHandler::connectToHost(const std::string &host, int port){
+int ProxyHandler::connectToHost(const std::string &host, int port){
     struct addrinfo hints, *res = nullptr;
-    SOCKET sockfd = INVALID_SOCKET;
 
-    ZeroMemory(&hints, sizeof(hints));
+    memset(&hints, 0, sizeof(hints));
     hints.ai_family   = AF_INET;      // IPv4 default
     hints.ai_socktype = SOCK_STREAM;  // TCP
 
@@ -90,26 +91,27 @@ SOCKET ProxyHandler::connectToHost(const std::string &host, int port){
     // Resolve DNS
     if(getaddrinfo(host.c_str(), portStr.c_str(), &hints, &res) != 0){
         std::cerr << "[Proxy] getaddrinfo failed for host: " << host << "\n";
-        return INVALID_SOCKET;
+        return -1;
     }
 
+    int sockfd = -1;
     // Create socket and connect
     sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if(sockfd == INVALID_SOCKET){
+    if(sockfd == -1){
         freeaddrinfo(res);
-        return INVALID_SOCKET;
+        return -1;
     }
 
-    if(connect(sockfd, res->ai_addr, (int)res->ai_addrlen) == SOCKET_ERROR){
-        closesocket(sockfd);
-        sockfd = INVALID_SOCKET;
+    if(connect(sockfd, res->ai_addr, (int)res->ai_addrlen) == -1){
+        close(sockfd);
+        sockfd = -1;
     }
 
     freeaddrinfo(res);
     return sockfd;
 }
 
-bool ProxyHandler::forwardRequest(SOCKET remote_socket, const HttpRequest &request){
+bool ProxyHandler::forwardRequest(int remote_socket, const HttpRequest &request){
     std::string requestStr = request.toString();
     const char *data = requestStr.c_str();
     int totalLen = (int)requestStr.size();
@@ -118,8 +120,8 @@ bool ProxyHandler::forwardRequest(SOCKET remote_socket, const HttpRequest &reque
     // TCP may send in chunks -> loop to guarantee all bytes are sent
     while(totalSent < totalLen){
         int sent = send(remote_socket, data + totalSent, totalLen - totalSent, 0);
-        if(sent == SOCKET_ERROR){
-            std::cerr << "[Proxy] send() to origin failed: " << WSAGetLastError() << "\n";
+        if(sent == -1){
+            std::cerr << "[Proxy] send() to origin failed: " << errno << "\n";
             return false;
         }
         totalSent += sent;
@@ -128,7 +130,7 @@ bool ProxyHandler::forwardRequest(SOCKET remote_socket, const HttpRequest &reque
     return true;
 }
 
-std::string ProxyHandler::fetchResponse(SOCKET remote_socket){
+std::string ProxyHandler::fetchResponse(int remote_socket){
     std::string response;
     char buffer[4096];
 
@@ -139,19 +141,19 @@ std::string ProxyHandler::fetchResponse(SOCKET remote_socket){
     }
 
     if(bytes < 0){
-        int error = WSAGetLastError();
-        if(error == WSAETIMEDOUT){
+        int error = errno;
+        if(error == EAGAIN || error == EWOULDBLOCK){
             std::cerr << "[Proxy] origin timed out mid-response\n";
         }
         else{
-            std::cerr << "[Proxy] recv() from origin failed: " << WSAGetLastError() << "\n";
+            std::cerr << "[Proxy] recv() from origin failed: " << errno << "\n";
         }
     }
     std::cout << "[Proxy] Fetched " << response.size() << " bytes from origin.\n";
     return response;
 }
 
-void ProxyHandler::sendToClient(SOCKET client_socket, const std::string &response){
+void ProxyHandler::sendToClient(int client_socket, const std::string &response){
     const char *data = response.c_str();
     int totalLength = (int)response.size();
     int totalSent = 0;
@@ -159,8 +161,8 @@ void ProxyHandler::sendToClient(SOCKET client_socket, const std::string &respons
     // Introduce partial send loop, TCP may not send all at once
     while(totalSent < totalLength){
         int sent = send(client_socket, data + totalSent, totalLength - totalSent, 0);
-        if(sent == SOCKET_ERROR){
-            std::cerr << "[Proxy] send() to client failed: " << WSAGetLastError() << "\n";
+        if(sent == -1){
+            std::cerr << "[Proxy] send() to client failed: " << errno << "\n";
             return;
         }
         totalSent += sent;
@@ -169,13 +171,13 @@ void ProxyHandler::sendToClient(SOCKET client_socket, const std::string &respons
     std::cout << "[Proxy] sent " << totalLength << "bytes to client\n";
 }
 
-void ProxyHandler::handleConnect(SOCKET client_socket, const std::string &host, int port){
+void ProxyHandler::handleConnect(int client_socket, const std::string &host, int port){
     std::cout << "[Proxy] CONNECT request for " << host << ":" << port << "\n";
 
     // Opening a plain TCP connection to the origin on the requested port (usually 443).
     // TLS is handled entirely by the browser and origin
-    SOCKET remote_socket = connectToHost(host, port);
-    if(remote_socket == INVALID_SOCKET){
+    int remote_socket = connectToHost(host, port);
+    if(remote_socket == -1){
         std::cerr << "[Proxy] CONNECT failed: could not reach " << host << ":" << port << "\n";
         return;
     }
@@ -190,14 +192,14 @@ void ProxyHandler::handleConnect(SOCKET client_socket, const std::string &host, 
     runTunnel(client_socket, remote_socket);
     std::cout << "[Proxy] CONNECT tunnel closed: " << host << ":" << port << "\n";
 
-    closesocket(remote_socket);
+    close(remote_socket);
 }
 
-void ProxyHandler::runTunnel(SOCKET client_socket, SOCKET remote_socket){
+void ProxyHandler::runTunnel(int client_socket, int remote_socket){
     char buffer[4096];
 
     // select() tells which socket(s) are readable, so we can forward in whichever direction has data, without blocking
-     while(true){
+    while(true){
         fd_set readSet;
         FD_ZERO(&readSet);
         FD_SET(client_socket, &readSet);
@@ -207,7 +209,8 @@ void ProxyHandler::runTunnel(SOCKET client_socket, SOCKET remote_socket){
         tv.tv_sec  = 30;   // 30 sec connection timeout
         tv.tv_usec = 0;
 
-        int ready = select(0, &readSet, nullptr, nullptr, &tv);
+        int nfds = std::max(client_socket, remote_socket) + 1;
+        int ready = select(nfds, &readSet, nullptr, nullptr, &tv);
         if(ready <= 0){
             break;   // 0 = timeout, <0 = select error
         }
@@ -218,7 +221,7 @@ void ProxyHandler::runTunnel(SOCKET client_socket, SOCKET remote_socket){
             if(n <= 0){
                 break;   // browser closed the connection
             }
-            if(send(remote_socket, buffer, n, 0) == SOCKET_ERROR){
+            if(send(remote_socket, buffer, n, 0) == -1){
                 break;
             }
         }
@@ -228,7 +231,7 @@ void ProxyHandler::runTunnel(SOCKET client_socket, SOCKET remote_socket){
             if(n <= 0){
                 break;   // origin closed the connection
             }
-            if(send(client_socket, buffer, n, 0) == SOCKET_ERROR){
+            if(send(client_socket, buffer, n, 0) == -1){
                 break;
             }
         }

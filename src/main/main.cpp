@@ -19,6 +19,7 @@ int main(){
         miniCDN::TcpServer server(8080);
         globalServer = &server;
         
+        std::signal(SIGPIPE, SIG_IGN);
         server.start();
     }
     catch(const std::exception &e){
