@@ -4,6 +4,12 @@ project(miniCDN VERSION 1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Default to Release Build (-DCMAKE_BUILD_TYPE=Debug for debug build)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+    message(STATUS "Build type not set — defaulting to Release")
+endif()
+
 option(BUILD_TESTS "Build GTest unit tests" OFF)
 option(BUILD_BENCHMARKS "Build Google Benchmarks" OFF)
 
