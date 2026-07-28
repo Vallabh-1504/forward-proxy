@@ -14,7 +14,7 @@ namespace miniCDN{
 
 class TcpServer{
 public:
-    TcpServer(int port);
+    TcpServer(int port, int pool_size);
     ~TcpServer();
 
     void start();

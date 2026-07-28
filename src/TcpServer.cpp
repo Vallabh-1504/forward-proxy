@@ -9,7 +9,7 @@
 
 namespace miniCDN{
 
-TcpServer::TcpServer(int port) : m_port(port), m_server_socket(-1), m_cache(100), m_threapool(16) {
+TcpServer::TcpServer(int port, int pool_size) : m_port(port), m_server_socket(-1), m_cache(100), m_threapool(pool_size) {
     setupSocket();
 }
 
