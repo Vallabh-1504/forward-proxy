@@ -152,11 +152,11 @@ std::string HttpRequest::toLower(const std::string &str) const{
 }
 
 void HttpRequest::printInfo() const{
-    std::cout << "--- Parsed Request ---\n";
-    std::cout << "Method: " << m_method << "\n";
-    std::cout << "Target URL: " << m_url << "\n";
-    std::cout << "Detected Host: " << getHost() << "\n";
-    std::cout << "----------------------\n";
+    // std::cout << "--- Parsed Request ---\n";
+    // std::cout << "Method: " << m_method << "\n";
+    // std::cout << "Target URL: " << m_url << "\n";
+    // std::cout << "Detected Host: " << getHost() << "\n";
+    // std::cout << "----------------------\n";
 }
 
 } // namespace miniCDN

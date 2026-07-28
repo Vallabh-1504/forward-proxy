@@ -40,7 +40,7 @@ void TcpServer::setupSocket(){
         throw std::runtime_error("listen failed with error:" + std::string(strerror(errno)));
     }
 
-    std::cout << "[server] sockets initialized. Listening on Port " << m_port << "...\n";
+    // std::cout << "[server] sockets initialized. Listening on Port " << m_port << "...\n";
 }
 
 void TcpServer::start(){
@@ -49,7 +49,7 @@ void TcpServer::start(){
         sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
 
-        std::cout << "\n[server] Waiting for connection...\n";
+        // std::cout << "\n[server] Waiting for connection...\n";
 
         client_socket = accept(m_server_socket, (struct sockaddr*)&client_addr, &client_len);
         if(client_socket == -1){
@@ -67,7 +67,7 @@ void TcpServer::start(){
         struct timeval timeout{5, 0};
         setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
             
-        std::cout << "[server] connection accepted!\n";
+        // std::cout << "[server] connection accepted!\n";
 
         // enqueue the job as a lambda function to threadpool
         m_threapool.enqueue([this, client_socket](){
@@ -93,7 +93,7 @@ void TcpServer::handleClient(int client_socket){
         }
         else if(bytesRead == 0){
             // no bytes received, client didn't send any data
-            std::cout << "[Server] Client closed connection before sending data.\n";
+            // std::cout << "[Server] Client closed connection before sending data.\n";
             close(client_socket);
             return;
         }

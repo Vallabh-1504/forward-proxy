@@ -22,11 +22,11 @@ void ProxyHandler::handleRequest(int client_socket, HttpRequest &request){
     std::string cacheKey = request.getUrl();
     auto cached = m_cache.get(cacheKey);
     if(cached.has_value()){
-        std::cout << "[cache] HIT: " << cacheKey << "\n";
+        // std::cout << "[cache] HIT: " << cacheKey << "\n";
         sendToClient(client_socket, cached.value());
         return;
     }
-    std::cout << "[cache] Miss: " << cacheKey << "\n";
+    // std::cout << "[cache] Miss: " << cacheKey << "\n";
 
     // 1. Prepare request headers for forwarding, add headers
     request.setHeader("Host", host); // ensure Host header is present
@@ -37,13 +37,13 @@ void ProxyHandler::handleRequest(int client_socket, HttpRequest &request){
     request.removeHeader("Proxy-Connection");
 
     // 2. Connect to remote host
-    std::cout << "[Proxy] Connecting to " << host << " on port " << port << "...\n";
+    // std::cout << "[Proxy] Connecting to " << host << " on port " << port << "...\n";
     int remote_socket = connectToHost(host, port);
     if(remote_socket == -1){
         std::cerr << "[Proxy] Failed to connect to " << host << "\n";
         return;
     }
-    std::cout << "[Proxy] Connected to " << host << "\n";
+    // std::cout << "[Proxy] Connected to " << host << "\n";
 
     // set a receive timeout on remote_socket
     // as not keeping can freeze thread on recv if received broken headers
@@ -57,7 +57,7 @@ void ProxyHandler::handleRequest(int client_socket, HttpRequest &request){
         close(remote_socket);
         return;
     }
-    std::cout << "[Proxy] Request forwarded to " << host << "\n";
+    // std::cout << "[Proxy] Request forwarded to " << host << "\n";
 
     // 4. Fetch the full response into memory
     std::string response = fetchResponse(remote_socket);
@@ -70,13 +70,13 @@ void ProxyHandler::handleRequest(int client_socket, HttpRequest &request){
 
     // 5. store the response from Cache
     m_cache.put(cacheKey, response);
-    std::cout << "[Cache] stored response for: " << cacheKey << "\n";
+    // std::cout << "[Cache] stored response for: " << cacheKey << "\n";
 
     // 6. Send the response back to the client
-    std::cout << "[Proxy] sending response to client from " << host << "...\n";
+    // std::cout << "[Proxy] sending response to client from " << host << "...\n";
     sendToClient(client_socket, response);
     
-    std::cout << "[Proxy] Done.\n";
+    // std::cout << "[Proxy] Done.\n";
 }
 
 int ProxyHandler::connectToHost(const std::string &host, int port){
@@ -149,7 +149,7 @@ std::string ProxyHandler::fetchResponse(int remote_socket){
             std::cerr << "[Proxy] recv() from origin failed: " << errno << "\n";
         }
     }
-    std::cout << "[Proxy] Fetched " << response.size() << " bytes from origin.\n";
+    // std::cout << "[Proxy] Fetched " << response.size() << " bytes from origin.\n";
     return response;
 }
 
@@ -168,11 +168,11 @@ void ProxyHandler::sendToClient(int client_socket, const std::string &response){
         totalSent += sent;
     }
 
-    std::cout << "[Proxy] sent " << totalLength << "bytes to client\n";
+    // std::cout << "[Proxy] sent " << totalLength << "bytes to client\n";
 }
 
 void ProxyHandler::handleConnect(int client_socket, const std::string &host, int port){
-    std::cout << "[Proxy] CONNECT request for " << host << ":" << port << "\n";
+    // std::cout << "[Proxy] CONNECT request for " << host << ":" << port << "\n";
 
     // Opening a plain TCP connection to the origin on the requested port (usually 443).
     // TLS is handled entirely by the browser and origin
@@ -187,10 +187,10 @@ void ProxyHandler::handleConnect(int client_socket, const std::string &host, int
     std::string ok = "HTTP/1.1 200 Connection Established\r\n\r\n";
 
     send(client_socket, ok.c_str(), (int)ok.size(), 0);
-    std::cout << "[Proxy] CONNECT tunnel open: " << host << ":" << port << "\n";
+    // std::cout << "[Proxy] CONNECT tunnel open: " << host << ":" << port << "\n";
 
     runTunnel(client_socket, remote_socket);
-    std::cout << "[Proxy] CONNECT tunnel closed: " << host << ":" << port << "\n";
+    // std::cout << "[Proxy] CONNECT tunnel closed: " << host << ":" << port << "\n";
 
     close(remote_socket);
 }
