@@ -69,6 +69,12 @@ void TcpServer::start(){
             
         // std::cout << "[server] connection accepted!\n";
 
+        // Apply TCP_NODELAY to disable Nagle's algorithm for lower latency
+        int enable = 1;
+        if (setsockopt(client_socket, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable)) == -1) {
+            std::cerr << "[Server] Failed to set TCP_NODELAY on client socket: " << strerror(errno) << "\n";
+        }
+
         // enqueue the job as a lambda function to threadpool
         m_threapool.enqueue([this, client_socket](){
             this->handleClient(client_socket);

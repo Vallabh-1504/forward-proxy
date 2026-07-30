@@ -102,6 +102,12 @@ int ProxyHandler::connectToHost(const std::string &host, int port){
         return -1;
     }
 
+    // Apply TCP_NODELAY to disable Nagle's algorithm for lower latency
+    int enable = 1;
+    if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable)) == -1) {
+        std::cerr << "[Proxy] Failed to set TCP_NODELAY on remote socket: " << strerror(errno) << "\n";
+    }
+
     if(connect(sockfd, res->ai_addr, (int)res->ai_addrlen) == -1){
         close(sockfd);
         sockfd = -1;

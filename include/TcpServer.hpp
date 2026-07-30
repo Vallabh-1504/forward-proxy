@@ -3,6 +3,7 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h> // Required for TCP_NODELAY
 #include <unistd.h>
 
 #include <atomic>
