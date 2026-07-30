@@ -4,6 +4,8 @@ project(miniCDN VERSION 1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(FetchContent)
+
 # Default to Release Build (-DCMAKE_BUILD_TYPE=Debug for debug build)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -36,7 +38,38 @@ add_custom_target(try_run
 )
 
 
-# ---- Unit Tests ----------------------------------------------------------------------------------------
+
+
+# ---- Benchmarks ---------------------------------------------------------------------
+if(BUILD_BENCHMARKS)
+    FetchContent_Declare(
+        googlebenchmark
+        URL https://github.com/google/benchmark/archive/refs/tags/v1.8.3.zip
+    )
+
+    # Disable benchmark's own internal tests
+    set(BENCHMARK_ENABLE_TESTING       OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_GTEST_TESTS   OFF CACHE BOOL "" FORCE)
+    # Prevent -Werror from failing benchmark's build on MinGW (e.g. CacheUnknown switch warning)
+    set(BENCHMARK_ENABLE_WERROR        OFF CACHE BOOL "" FORCE)
+
+    FetchContent_MakeAvailable(googlebenchmark)
+
+    add_executable(
+        miniCDN_bench
+        Gbenchmarks/bench_Httprequest.cpp
+        src/HttpRequest.cpp
+    )
+
+    target_include_directories(miniCDN_bench PRIVATE
+        include
+    )
+
+    target_link_libraries(miniCDN_bench benchmark::benchmark)
+endif()
+
+
+# ---- Unit Tests --------------------------------------------------------------------------
 # if(BUILD_TESTS)
 #     # Get GTest through FetchContent at build time
 #     include(FetchContent)
@@ -68,33 +101,3 @@ add_custom_target(try_run
 #     include(GoogleTest)
 #     gtest_discover_tests(miniCDN_tests)
 # endif()
-
-
-# # ---- Benchmarks ----------------------------------------------------------------------------
-# if(BUILD_BENCHMARKS)
-#     FetchContent_Declare(
-#         googlebenchmark
-#         URL https://github.com/google/benchmark/archive/refs/tags/v1.8.3.zip
-#     )
-
-#     # Disable benchmark's own internal tests
-#     set(BENCHMARK_ENABLE_TESTING       OFF CACHE BOOL "" FORCE)
-#     set(BENCHMARK_ENABLE_GTEST_TESTS   OFF CACHE BOOL "" FORCE)
-#     # Prevent -Werror from failing benchmark's build on MinGW (e.g. CacheUnknown switch warning)
-#     set(BENCHMARK_ENABLE_WERROR        OFF CACHE BOOL "" FORCE)
-
-#     FetchContent_MakeAvailable(googlebenchmark)
-
-#     add_executable(
-#         miniCDN_bench
-#         benchmarks/bench_HttpRequest.cpp
-#         src/http/HttpRequest.cpp
-#     )
-
-#     target_include_directories(miniCDN_bench PRIVATE
-#         src/http
-#     )
-
-#     target_link_libraries(miniCDN_bench benchmark::benchmark)
-# endif()
-
