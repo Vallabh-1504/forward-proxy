@@ -9,8 +9,9 @@ LRUCache::LRUCache(size_t capacity) : m_capacity(capacity){
 }
 
 std::optional<std::string> LRUCache::get(const std::string& key){
-    // lock: Touching the list
-    std::lock_guard lock(m_mutex);
+    // shared_lock: multiple threads can read concurrently
+    std::shared_lock lock(m_mutex);
+
 
     auto it = m_map.find(key);
     if(it == m_map.end()){
@@ -18,14 +19,15 @@ std::optional<std::string> LRUCache::get(const std::string& key){
     }
 
     // Moving accessed node to front
-    m_list.splice(m_list.begin(), m_list, it->second);
+    // m_list.splice(m_list.begin(), m_list, it->second);
+    // no update on read
     
     return it->second->second;
 }
 
 void LRUCache::put(const std::string& key, const std::string& value){
-    // lock: Touching the list 
-    std::lock_guard lock(m_mutex);
+    // unique_lock: exclusive write and no reads allowed
+    std::unique_lock lock(m_mutex);
 
     // Check if key exists
     auto it = m_map.find(key);

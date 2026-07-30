@@ -5,6 +5,7 @@
 #include <list>
 #include <unordered_map>
 #include <mutex>
+#include <shared_mutex>
 #include <optional>
 
 namespace miniCDN{
@@ -21,7 +22,8 @@ public:
 private:
     size_t m_capacity;
     
-    mutable std::mutex m_mutex;
+    // shared_mutex (reader-writer lock)
+    mutable std::shared_mutex m_mutex;
 
     // Doubly linked list to store keys and values
     std::list<std::pair<std::string, std::string>> m_list;
