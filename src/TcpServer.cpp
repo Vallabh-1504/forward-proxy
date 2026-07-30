@@ -24,6 +24,13 @@ void TcpServer::setupSocket(){
         throw std::runtime_error("Error at socket():" + std::string(strerror(errno)));
     }
 
+    // Allow immediate rebind after process restart (avoiding "Address already in use" error)
+    int opt = 1;
+    if(setsockopt(m_server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1){
+        cleanup();
+        throw std::runtime_error("setsockopt SO_REUSEADDR failed: " + std::string(strerror(errno)));
+    }
+
     // 2. Bind the socket
     m_server_addr.sin_family = AF_INET;
     m_server_addr.sin_addr.s_addr = INADDR_ANY;
