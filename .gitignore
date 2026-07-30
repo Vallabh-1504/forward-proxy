@@ -5,3 +5,10 @@ build/
 #dev req
 docs/
 dev.md
+
+
+# benchmarks requirements
+saved_builds/
+*.txt
+results/
+
