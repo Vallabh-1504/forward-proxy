@@ -16,10 +16,11 @@ void handleShutdown(int signum){
 int main(int argc, char* argv[]){
     std::signal(SIGINT, handleShutdown);
 
-    int pool_size = (argc > 1) ? std::stoi(argv[1]) : 16;
+    int port      = (argc > 1) ? std::stoi(argv[1]) : 8080;
+    int pool_size = (argc > 2) ? std::stoi(argv[2]) : 16;
 
     try{
-        miniCDN::TcpServer server(8080, pool_size);
+        miniCDN::TcpServer server(port, pool_size);
         globalServer = &server;
         
         std::signal(SIGPIPE, SIG_IGN);
