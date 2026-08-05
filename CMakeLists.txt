@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(miniCDN VERSION 1.0 LANGUAGES CXX)
+project(proxy VERSION 1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,7 +16,7 @@ option(BUILD_TESTS "Build GTest unit tests" OFF)
 option(BUILD_BENCHMARKS "Build Google Benchmarks" OFF)
 
 # Define the executable and add source files
-add_executable(mini_cdn
+add_executable(proxy
     src/main.cpp
     src/TcpServer.cpp
     src/HttpRequest.cpp
@@ -26,14 +26,14 @@ add_executable(mini_cdn
 )
 
 # specify where to find header filer
-target_include_directories(mini_cdn PUBLIC
+target_include_directories(ProxyHandler PUBLIC
     include
 )
 
 # Add custom target to run after building
 add_custom_target(try_run
-    COMMAND mini_cdn
-    DEPENDS mini_cdn
+    COMMAND proxy
+    DEPENDS proxy
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
@@ -56,16 +56,16 @@ if(BUILD_BENCHMARKS)
     FetchContent_MakeAvailable(googlebenchmark)
 
     add_executable(
-        miniCDN_bench
+        proxy_bench
         Gbenchmarks/bench_Httprequest.cpp
         src/HttpRequest.cpp
     )
 
-    target_include_directories(miniCDN_bench PRIVATE
+    target_include_directories(proxy_bench PRIVATE
         include
     )
 
-    target_link_libraries(miniCDN_bench benchmark::benchmark)
+    target_link_libraries(proxy_bench benchmark::benchmark)
 endif()
 
 
@@ -87,17 +87,17 @@ endif()
 
 #     # Test executables
 #     add_executable(
-#         miniCDN_tests
+#         proxy_tests
 #         tests/test_HttpRequest.cpp
 #         src/http/HttpRequest.cpp
 #     )
 
-#     target_include_directories(miniCDN_tests PRIVATE
+#     target_include_directories(proxy_tests PRIVATE
 #         src/http
 #     )
 
-#     target_link_libraries(miniCDN_tests GTest::gtest_main)
+#     target_link_libraries(proxy_tests GTest::gtest_main)
 
 #     include(GoogleTest)
-#     gtest_discover_tests(miniCDN_tests)
+#     gtest_discover_tests(proxy_tests)
 # endif()
