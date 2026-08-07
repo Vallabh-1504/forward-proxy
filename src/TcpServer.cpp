@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <cstring>
+#include <arpa/inet.h>  // inet_ntop
 
 #include "TcpServer.hpp"
 #include "HttpRequest.hpp"
@@ -9,7 +10,13 @@
 
 namespace miniCDN{
 
-TcpServer::TcpServer(int port, int pool_size) : m_port(port), m_server_socket(-1), m_cache(100), m_threapool(pool_size) {
+TcpServer::TcpServer(int port, int pool_size, bool enable_rate_limiting)
+    : m_port(port),
+      m_server_socket(-1),
+      m_cache(100),
+      m_rate_limiter(100.0, 10.0), // burst=100 tokens, refill=10 tokens/sec
+      m_threapool(pool_size),
+      m_rate_limiting_enabled(enable_rate_limiting) {
     setupSocket();
 }
 
@@ -80,6 +87,29 @@ void TcpServer::start(){
         int enable = 1;
         if (setsockopt(client_socket, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable)) == -1) {
             std::cerr << "[Server] Failed to set TCP_NODELAY on client socket: " << strerror(errno) << "\n";
+        }
+
+        // Rate limiting
+        if(m_rate_limiting_enabled){
+            char client_ip[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, sizeof(client_ip));
+
+            if(!m_rate_limiter.allow(client_ip)){
+                // Bucket empty: send 429 and close without entering the thread pool
+                const std::string response_429 =
+                    "HTTP/1.1 429 Too Many Requests\r\n"
+                    "Content-Type: text/plain\r\n"
+                    "Retry-After: 1\r\n"
+                    "Content-Length: 20\r\n"
+                    "Connection: close\r\n"
+                    "\r\n"
+                    "Too Many Requests.\r\n";
+                    
+                send(client_socket, response_429.c_str() , response_429.length(), 0);
+                std::cerr << "[RateLimit] 429 sent to " << client_ip << "\n";
+                close(client_socket);
+                continue;
+            }
         }
 
         // enqueue the job as a lambda function to threadpool

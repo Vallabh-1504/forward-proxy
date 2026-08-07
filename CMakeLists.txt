@@ -22,11 +22,12 @@ add_executable(proxy
     src/HttpRequest.cpp
     src/ProxyHandler.cpp
     src/LRUCache.cpp
+    src/RateLimiter.cpp
     src/Threadpool.cpp
 )
 
-# specify where to find header filer
-target_include_directories(ProxyHandler PUBLIC
+# specify where to find header files
+target_include_directories(proxy PUBLIC
     include
 )
 

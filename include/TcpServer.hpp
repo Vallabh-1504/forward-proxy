@@ -9,13 +9,14 @@
 #include <atomic>
 
 #include "LRUCache.hpp"
+#include "RateLimiter.hpp"
 #include "Threadpool.hpp"
 
 namespace miniCDN{
 
 class TcpServer{
 public:
-    TcpServer(int port, int pool_size);
+    TcpServer(int port, int pool_size, bool enable_rate_limiting = true);
     ~TcpServer();
 
     void start();
@@ -27,9 +28,11 @@ private:
     sockaddr_in m_server_addr;
 
     LRUCache m_cache;
+    RateLimiter m_rate_limiter;
     Threadpool m_threapool;
 
     std::atomic<bool> m_running{true};
+    bool m_rate_limiting_enabled;
 
     void setupSocket();
     void handleClient(int client_socket);
